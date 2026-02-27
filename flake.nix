@@ -50,6 +50,8 @@
           inherit nativeBuildInputs buildInputs;
 
           shellHook = ''
+            # WebKitGTK DMA-BUF workaround for Wayland
+            export WEBKIT_DISABLE_DMABUF_RENDERER=1
             echo "nixos-manager dev shell ready"
             echo "Run: npm install && npm run tauri dev"
           '';
