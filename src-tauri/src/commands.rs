@@ -151,7 +151,56 @@ pub fn preview_config(path: String, host: String) -> Result<CommandResult, Strin
     Ok(result)
 }
 
-// ─── Apply (pkexec nixos-rebuild switch) ────────────────────────────────────
+// ─── Graphical askpass helper discovery ──────────────────────────────────────
+
+fn find_askpass() -> Option<String> {
+    // Try well-known askpass binaries in order of preference
+    let candidates = [
+        "/run/current-system/sw/bin/ksshaskpass",
+        "/run/current-system/sw/bin/x11-ssh-askpass",
+        "/run/current-system/sw/bin/ssh-askpass",
+        "/run/current-system/sw/bin/lxqt-openssh-askpass",
+    ];
+    for path in &candidates {
+        if std::path::Path::new(path).exists() {
+            return Some(path.to_string());
+        }
+    }
+
+    // Try PATH-based lookup for the same names
+    for name in &["ksshaskpass", "x11-ssh-askpass", "ssh-askpass", "lxqt-openssh-askpass"] {
+        if let Ok(out) = Command::new("which").arg(name).output() {
+            if out.status.success() {
+                let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !p.is_empty() {
+                    return Some(p);
+                }
+            }
+        }
+    }
+
+    // Fallback: if zenity is available, write a tiny wrapper script
+    if let Ok(out) = Command::new("which").arg("zenity").output() {
+        if out.status.success() {
+            let zenity = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !zenity.is_empty() {
+                let script = format!(
+                    "#!/bin/sh\n{} --password --title='Nixie — sudo authentication'\n",
+                    zenity
+                );
+                let script_path = "/tmp/nixie-askpass.sh";
+                if std::fs::write(script_path, script).is_ok() {
+                    let _ = Command::new("chmod").args(["+x", script_path]).status();
+                    return Some(script_path.to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+// ─── Apply (sudo -A nixos-rebuild switch) ────────────────────────────────────
 
 #[tauri::command]
 pub fn apply_config(path: String, host: String) -> Result<CommandResult, String> {
@@ -176,10 +225,22 @@ pub fn apply_config(path: String, host: String) -> Result<CommandResult, String>
         );
     }
 
+    let askpass = find_askpass().ok_or_else(|| {
+        "No graphical askpass helper found. Install ksshaskpass, x11-ssh-askpass, or zenity."
+            .to_string()
+    })?;
+
     let flake_ref = format!("{}#{}", path, host);
 
-    let output = Command::new("sudo")
-        .args(["nixos-rebuild", "switch", "--flake", &flake_ref])
+    let mut cmd = Command::new("sudo");
+    cmd.args(["-A", "nixos-rebuild", "switch", "--flake", &flake_ref]);
+    cmd.env("SUDO_ASKPASS", &askpass);
+    // Pass display environment so the askpass GUI can open
+    if let Ok(v) = std::env::var("DISPLAY") { cmd.env("DISPLAY", v); }
+    if let Ok(v) = std::env::var("WAYLAND_DISPLAY") { cmd.env("WAYLAND_DISPLAY", v); }
+    if let Ok(v) = std::env::var("XDG_RUNTIME_DIR") { cmd.env("XDG_RUNTIME_DIR", v); }
+
+    let output = cmd
         .output()
         .map_err(|e| format!("Failed to run sudo nixos-rebuild: {}", e))?;
 
