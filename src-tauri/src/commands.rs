@@ -6,6 +6,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use uuid::Uuid;
+use walkdir::WalkDir;
 
 // ─── Response types ──────────────────────────────────────────────────────────
 
@@ -321,12 +322,68 @@ pub fn validate_path(path: String) -> Result<bool, String> {
     Ok(validate_flake_path(&path).is_ok())
 }
 
-// ─── Read flake.nix content ───────────────────────────────────────────────────
+// ─── List all .nix files in flake directory ───────────────────────────────────
+
+const IGNORE_DIRS: &[&str] = &[".git", "node_modules", "result", "target", ".direnv"];
 
 #[tauri::command]
-pub fn read_flake_nix(path: String) -> Result<String, String> {
+pub fn list_nix_files(path: String) -> Result<Vec<String>, String> {
     validate_flake_path(&path).map_err(|e| e.to_string())?;
-    let file = std::path::Path::new(&path).join("flake.nix");
-    std::fs::read_to_string(&file)
-        .map_err(|e| format!("Failed to read flake.nix: {}", e))
+    let root = std::path::Path::new(&path);
+
+    let mut files: Vec<String> = WalkDir::new(root)
+        .max_depth(10)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            if e.file_type().is_dir() {
+                let name = e.file_name().to_string_lossy();
+                !IGNORE_DIRS.iter().any(|&ig| name == ig)
+            } else {
+                true
+            }
+        })
+        .flatten()
+        .filter(|e| {
+            e.file_type().is_file()
+                && e.path().extension().and_then(|x| x.to_str()) == Some("nix")
+        })
+        .filter_map(|e| {
+            e.path()
+                .strip_prefix(root)
+                .ok()
+                .map(|r| r.to_string_lossy().to_string())
+        })
+        .collect();
+
+    files.sort();
+    Ok(files)
+}
+
+// ─── Read any .nix file within the flake directory ────────────────────────────
+
+#[tauri::command]
+pub fn read_nix_file(root: String, rel_path: String) -> Result<String, String> {
+    validate_flake_path(&root).map_err(|e| e.to_string())?;
+
+    let base = std::path::Path::new(&root);
+    let full = base.join(&rel_path);
+
+    // Prevent path traversal: canonicalize and verify it stays inside root
+    let canon_root = base
+        .canonicalize()
+        .map_err(|e| format!("Cannot resolve root: {}", e))?;
+    let canon_full = full
+        .canonicalize()
+        .map_err(|e| format!("Cannot resolve path: {}", e))?;
+
+    if !canon_full.starts_with(&canon_root) {
+        return Err("Path is outside flake directory".to_string());
+    }
+    if canon_full.extension().and_then(|e| e.to_str()) != Some("nix") {
+        return Err("Only .nix files can be read".to_string());
+    }
+
+    std::fs::read_to_string(&canon_full)
+        .map_err(|e| format!("Failed to read file: {}", e))
 }

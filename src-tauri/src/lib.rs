@@ -32,8 +32,9 @@ pub fn run() {
             backup_config,
             // Validation
             validate_path,
-            // File reading
-            read_flake_nix,
+            // File browsing
+            list_nix_files,
+            read_nix_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

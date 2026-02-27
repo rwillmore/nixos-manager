@@ -28,5 +28,8 @@ export const api = {
 
   validatePath: (path: string) => invoke<boolean>("validate_path", { path }),
 
-  readFlakeNix: (path: string) => invoke<string>("read_flake_nix", { path }),
+  listNixFiles: (path: string) => invoke<string[]>("list_nix_files", { path }),
+
+  readNixFile: (root: string, relPath: string) =>
+    invoke<string>("read_nix_file", { root, relPath }),
 };

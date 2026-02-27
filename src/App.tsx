@@ -38,8 +38,10 @@ export default function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [isLoadingHosts, setIsLoadingHosts] = useState(false);
-  const [flakeContent, setFlakeContent] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"file" | "log">("file");
+  const [nixFiles, setNixFiles] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   const selectedConfig = configs.find((c) => c.id === selectedId) ?? null;
 
@@ -60,19 +62,38 @@ export default function App() {
       .catch((e) => appendLog("error", `Failed to load configs: ${e}`));
   }, [appendLog]);
 
-  // Load flake.nix content when selected config changes
+  // Load nix file list and auto-select flake.nix when selected config changes
   useEffect(() => {
     if (!selectedConfig) {
-      setFlakeContent(null);
+      setNixFiles([]);
+      setSelectedFile(null);
+      setFileContent(null);
       return;
     }
-    setFlakeContent(null);
+    setNixFiles([]);
+    setSelectedFile(null);
+    setFileContent(null);
     setActiveTab("file");
-    api
-      .readFlakeNix(selectedConfig.path)
-      .then(setFlakeContent)
-      .catch(() => setFlakeContent(null));
-  }, [selectedConfig?.id]);
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const files = await api.listNixFiles(selectedConfig.path);
+        if (cancelled) return;
+        setNixFiles(files);
+        const toSelect = files.find((f) => f === "flake.nix") ?? files[0] ?? null;
+        if (!toSelect) return;
+        setSelectedFile(toSelect);
+        const content = await api.readNixFile(selectedConfig.path, toSelect);
+        if (!cancelled) setFileContent(content);
+      } catch {
+        if (!cancelled) setFileContent(null);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedConfig?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load hosts when selected config changes
   useEffect(() => {
@@ -149,6 +170,30 @@ export default function App() {
     }
   };
 
+  const handleSelectFile = async (rel: string) => {
+    if (!selectedConfig) return;
+    setSelectedFile(rel);
+    setActiveTab("file");
+    setFileContent(null);
+    try {
+      const content = await api.readNixFile(selectedConfig.path, rel);
+      setFileContent(content);
+    } catch (e) {
+      setFileContent(null);
+      appendLog("error", `Failed to read file: ${e}`);
+    }
+  };
+
+  const handleRescan = async () => {
+    if (!selectedConfig) return;
+    try {
+      const files = await api.listNixFiles(selectedConfig.path);
+      setNixFiles(files);
+    } catch (e) {
+      appendLog("error", `Rescan failed: ${e}`);
+    }
+  };
+
   const handlePreview = async () => {
     if (!selectedConfig || !selectedHost) return;
     setWorkflowState("previewing");
@@ -213,7 +258,6 @@ export default function App() {
         appendLog("error", "Flake update FAILED");
         if (result.stderr) appendLog("error", result.stderr);
       }
-      // After update, clear preview_ok
       setConfigs((prev) =>
         prev.map((c) =>
           c.id === selectedConfig.id
@@ -264,6 +308,10 @@ export default function App() {
     selectedConfig.preview_ok &&
     selectedConfig.preview_ok_host === selectedHost;
 
+  const fileTabLabel = selectedFile
+    ? selectedFile.split("/").pop() ?? "File"
+    : "File";
+
   return (
     <div className="app-shell">
       <Sidebar
@@ -272,7 +320,11 @@ export default function App() {
         onSelect={handleSelectConfig}
         onRemove={handleRemoveConfig}
         onAddConfig={() => setShowAddModal(true)}
+        onRescan={handleRescan}
         isBusy={isBusy}
+        nixFiles={nixFiles}
+        selectedFile={selectedFile}
+        onSelectFile={handleSelectFile}
       />
 
       <TopBar
@@ -325,7 +377,7 @@ export default function App() {
                   className={`main-tab ${activeTab === "file" ? "active" : ""}`}
                   onClick={() => setActiveTab("file")}
                 >
-                  flake.nix
+                  {fileTabLabel}
                 </button>
                 <button
                   className={`main-tab ${activeTab === "log" ? "active" : ""}`}
@@ -341,11 +393,15 @@ export default function App() {
 
             {activeTab === "file" ? (
               <div className="file-viewer">
-                {flakeContent != null ? (
-                  <pre className="file-content">{flakeContent}</pre>
+                {fileContent != null ? (
+                  <pre className="file-content">{fileContent}</pre>
                 ) : (
                   <div className="log-empty">
-                    <span className="log-empty-text">Loading flake.nix…</span>
+                    <span className="log-empty-text">
+                      {selectedFile
+                        ? `Loading ${selectedFile}…`
+                        : "Select a file from the sidebar"}
+                    </span>
                   </div>
                 )}
               </div>
