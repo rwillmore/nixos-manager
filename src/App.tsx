@@ -275,7 +275,34 @@ export default function App() {
 
       <div className="main-content">
         {selectedConfig ? (
-          <LogPane logs={logs} isBusy={isBusy} workflowState={workflowState} />
+          <>
+            <div className="config-detail-bar">
+              <div className="config-detail-row">
+                <span className="detail-label">Path</span>
+                <span className="detail-value">{selectedConfig.path}</span>
+              </div>
+              <div className="config-detail-row">
+                <span className="detail-label">Hosts</span>
+                {isLoadingHosts ? (
+                  <div className="spinner" style={{ color: "var(--accent)" }} />
+                ) : hosts.length > 0 ? (
+                  <div className="host-tags">
+                    {hosts.map((h) => (
+                      <span
+                        key={h}
+                        className={`host-tag ${h === selectedHost ? "active" : ""}`}
+                      >
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="detail-muted">No hosts found</span>
+                )}
+              </div>
+            </div>
+            <LogPane logs={logs} isBusy={isBusy} workflowState={workflowState} />
+          </>
         ) : (
           <EmptyState onAdd={() => setShowAddModal(true)} />
         )}

@@ -511,6 +511,73 @@ body {
   overflow: hidden;
 }
 
+/* ─── Config detail bar ──────────────────────────────────────────────────── */
+.config-detail-bar {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.config-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 20px;
+}
+
+.detail-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  width: 38px;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-muted {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.host-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.host-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  transition: all var(--transition);
+}
+
+.host-tag.active {
+  background: color-mix(in srgb, var(--ctp-blue) 15%, transparent);
+  border-color: color-mix(in srgb, var(--ctp-blue) 50%, transparent);
+  color: var(--ctp-blue);
+}
+
 /* ─── Status bar ─────────────────────────────────────────────────────────── */
 .status-bar {
   padding: 10px 16px;

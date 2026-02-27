@@ -37,7 +37,7 @@ export function LogPane({ logs, isBusy, workflowState }: Props) {
           <div className="log-empty">
             <TerminalIcon />
             <span className="log-empty-text">
-              {isBusy ? "Running…" : "Select a config and run Preview to start"}
+              {isBusy ? "Running…" : "Run Preview to see output"}
             </span>
           </div>
         ) : (
