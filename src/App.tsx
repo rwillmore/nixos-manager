@@ -8,6 +8,7 @@ import { LogPane } from "./components/LogPane";
 import { EmptyState } from "./components/EmptyState";
 import { AddConfigModal } from "./components/AddConfigModal";
 import { BackupModal } from "./components/BackupModal";
+import { SudoPasswordModal } from "./components/SudoPasswordModal";
 
 let logIdCounter = 0;
 
@@ -37,6 +38,7 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [showSudoModal, setShowSudoModal] = useState(false);
   const [isLoadingHosts, setIsLoadingHosts] = useState(false);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"file" | "log">("file");
@@ -219,14 +221,20 @@ export default function App() {
     }
   };
 
-  const handleApply = async () => {
+  const handleApply = () => {
     if (!selectedConfig || !selectedHost) return;
+    setShowSudoModal(true);
+  };
+
+  const handleApplyWithPassword = async (password: string) => {
+    if (!selectedConfig || !selectedHost) return;
+    setShowSudoModal(false);
     setWorkflowState("applying");
     setActiveTab("log");
     appendLog("info", `Applying ${selectedConfig.display_name}#${selectedHost}…`);
 
     try {
-      const result = await api.applyConfig(selectedConfig.path, selectedHost);
+      const result = await api.applyConfig(selectedConfig.path, selectedHost, password);
       if (result.success) {
         appendLog("success", "Apply succeeded ✓ — system switched");
         if (result.stdout) appendLog("info", result.stdout);
@@ -426,6 +434,15 @@ export default function App() {
           configName={selectedConfig.display_name}
           onClose={() => setShowBackupModal(false)}
           onBackup={handleBackup}
+        />
+      )}
+
+      {showSudoModal && selectedConfig && (
+        <SudoPasswordModal
+          configName={selectedConfig.display_name}
+          host={selectedHost}
+          onClose={() => setShowSudoModal(false)}
+          onApply={handleApplyWithPassword}
         />
       )}
     </div>

@@ -151,59 +151,12 @@ pub fn preview_config(path: String, host: String) -> Result<CommandResult, Strin
     Ok(result)
 }
 
-// ─── Graphical askpass helper discovery ──────────────────────────────────────
-
-fn find_askpass() -> Option<String> {
-    // Try well-known askpass binaries in order of preference
-    let candidates = [
-        "/run/current-system/sw/bin/ksshaskpass",
-        "/run/current-system/sw/bin/x11-ssh-askpass",
-        "/run/current-system/sw/bin/ssh-askpass",
-        "/run/current-system/sw/bin/lxqt-openssh-askpass",
-    ];
-    for path in &candidates {
-        if std::path::Path::new(path).exists() {
-            return Some(path.to_string());
-        }
-    }
-
-    // Try PATH-based lookup for the same names
-    for name in &["ksshaskpass", "x11-ssh-askpass", "ssh-askpass", "lxqt-openssh-askpass"] {
-        if let Ok(out) = Command::new("which").arg(name).output() {
-            if out.status.success() {
-                let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                if !p.is_empty() {
-                    return Some(p);
-                }
-            }
-        }
-    }
-
-    // Fallback: if zenity is available, write a tiny wrapper script
-    if let Ok(out) = Command::new("which").arg("zenity").output() {
-        if out.status.success() {
-            let zenity = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !zenity.is_empty() {
-                let script = format!(
-                    "#!/bin/sh\n{} --password --title='Nixie — sudo authentication'\n",
-                    zenity
-                );
-                let script_path = "/tmp/nixie-askpass.sh";
-                if std::fs::write(script_path, script).is_ok() {
-                    let _ = Command::new("chmod").args(["+x", script_path]).status();
-                    return Some(script_path.to_string());
-                }
-            }
-        }
-    }
-
-    None
-}
-
-// ─── Apply (sudo -A nixos-rebuild switch) ────────────────────────────────────
+// ─── Apply (sudo -S nixos-rebuild switch, password via stdin) ────────────────
 
 #[tauri::command]
-pub fn apply_config(path: String, host: String) -> Result<CommandResult, String> {
+pub fn apply_config(path: String, host: String, password: String) -> Result<CommandResult, String> {
+    use std::io::Write;
+
     // Validate both
     validate_flake_path(&path).map_err(|e| e.to_string())?;
     validate_host_name(&host).map_err(|e| e.to_string())?;
@@ -225,30 +178,38 @@ pub fn apply_config(path: String, host: String) -> Result<CommandResult, String>
         );
     }
 
-    let askpass = find_askpass().ok_or_else(|| {
-        "No graphical askpass helper found. Install ksshaskpass, x11-ssh-askpass, or zenity."
-            .to_string()
-    })?;
-
     let flake_ref = format!("{}#{}", path, host);
 
-    let mut cmd = Command::new("sudo");
-    cmd.args(["-A", "nixos-rebuild", "switch", "--flake", &flake_ref]);
-    cmd.env("SUDO_ASKPASS", &askpass);
-    // Pass display environment so the askpass GUI can open
-    if let Ok(v) = std::env::var("DISPLAY") { cmd.env("DISPLAY", v); }
-    if let Ok(v) = std::env::var("WAYLAND_DISPLAY") { cmd.env("WAYLAND_DISPLAY", v); }
-    if let Ok(v) = std::env::var("XDG_RUNTIME_DIR") { cmd.env("XDG_RUNTIME_DIR", v); }
+    let mut child = Command::new("sudo")
+        .args(["-S", "nixos-rebuild", "switch", "--flake", &flake_ref])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn sudo: {}", e))?;
 
-    let output = cmd
-        .output()
-        .map_err(|e| format!("Failed to run sudo nixos-rebuild: {}", e))?;
+    // Write password to stdin then close it
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = stdin.write_all(format!("{}\n", password).as_bytes());
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("Failed to wait for sudo: {}", e))?;
+
+    // Strip the sudo password prompt from stderr so it doesn't clutter the log
+    let stderr_raw = String::from_utf8_lossy(&output.stderr).to_string();
+    let stderr = stderr_raw
+        .lines()
+        .filter(|l| !l.contains("[sudo] password"))
+        .collect::<Vec<_>>()
+        .join("\n");
 
     let success = output.status.success();
     let result = CommandResult {
         success,
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        stderr,
         exit_code: output.status.code(),
     };
 

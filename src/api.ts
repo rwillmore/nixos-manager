@@ -19,8 +19,8 @@ export const api = {
   previewConfig: (path: string, host: string) =>
     invoke<CommandResult>("preview_config", { path, host }),
 
-  applyConfig: (path: string, host: string) =>
-    invoke<CommandResult>("apply_config", { path, host }),
+  applyConfig: (path: string, host: string, password: string) =>
+    invoke<CommandResult>("apply_config", { path, host, password }),
 
   updateFlake: (path: string) => invoke<CommandResult>("update_flake", { path }),
 
