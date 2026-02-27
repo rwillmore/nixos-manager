@@ -1,0 +1,17 @@
+# Node
+node_modules/
+dist/
+
+# Rust / Cargo
+src-tauri/target/
+
+# Nix
+result
+.direnv/
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code session state (not project config)
+.claude/memory/
