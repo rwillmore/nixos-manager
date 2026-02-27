@@ -176,13 +176,12 @@ pub fn apply_config(path: String, host: String) -> Result<CommandResult, String>
         );
     }
 
-    let nixos_rebuild = "/run/current-system/sw/bin/nixos-rebuild";
     let flake_ref = format!("{}#{}", path, host);
 
-    let output = Command::new("pkexec")
-        .args([nixos_rebuild, "switch", "--flake", &flake_ref])
+    let output = Command::new("sudo")
+        .args(["nixos-rebuild", "switch", "--flake", &flake_ref])
         .output()
-        .map_err(|e| format!("Failed to run pkexec: {}", e))?;
+        .map_err(|e| format!("Failed to run sudo nixos-rebuild: {}", e))?;
 
     let success = output.status.success();
     let result = CommandResult {
