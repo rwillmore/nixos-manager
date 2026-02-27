@@ -256,7 +256,7 @@ export function Sidebar({
       <div className="sidebar-header">
         <div className="app-logo">
           <NixIcon />
-          <span className="app-title">NixOS Manager</span>
+          <span className="app-title">Nixie</span>
         </div>
         <div className="app-subtitle">flake config manager</div>
       </div>

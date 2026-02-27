@@ -1,20 +1,20 @@
 [package]
-name = "nixos-manager"
+name = "nixie"
 version = "0.1.0"
-description = "NixOS Flake Config Manager"
+description = "Nixie — NixOS Flake Config Manager"
 authors = ["Rob Willmore"]
 license = "MIT"
 repository = ""
-default-run = "nixos-manager"
+default-run = "nixie"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "nixos_manager_lib"
+name = "nixie_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "nixos-manager"
+name = "nixie"
 path = "src/main.rs"
 
 [build-dependencies]

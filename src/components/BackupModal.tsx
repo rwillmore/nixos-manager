@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function BackupModal({ configName, onClose, onBackup }: Props) {
-  const defaultMsg = `nixos-manager: update config - ${new Date().toISOString().slice(0, 10)}`;
+  const defaultMsg = `nixie: update config - ${new Date().toISOString().slice(0, 10)}`;
   const [message, setMessage] = useState(defaultMsg);
   const [push, setPush] = useState(true);
 

@@ -3,5 +3,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    nixos_manager_lib::run()
+    nixie_lib::run()
 }

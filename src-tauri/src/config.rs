@@ -22,7 +22,7 @@ pub struct AppConfig {
 pub fn config_path() -> Result<PathBuf> {
     let base = dirs::config_dir()
         .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?;
-    let dir = base.join("nixos-manager");
+    let dir = base.join("nixie");
     fs::create_dir_all(&dir)?;
     Ok(dir.join("configs.json"))
 }
