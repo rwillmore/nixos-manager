@@ -38,6 +38,8 @@ export default function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [isLoadingHosts, setIsLoadingHosts] = useState(false);
+  const [flakeContent, setFlakeContent] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"file" | "log">("file");
 
   const selectedConfig = configs.find((c) => c.id === selectedId) ?? null;
 
@@ -57,6 +59,20 @@ export default function App() {
       })
       .catch((e) => appendLog("error", `Failed to load configs: ${e}`));
   }, [appendLog]);
+
+  // Load flake.nix content when selected config changes
+  useEffect(() => {
+    if (!selectedConfig) {
+      setFlakeContent(null);
+      return;
+    }
+    setFlakeContent(null);
+    setActiveTab("file");
+    api
+      .readFlakeNix(selectedConfig.path)
+      .then(setFlakeContent)
+      .catch(() => setFlakeContent(null));
+  }, [selectedConfig?.id]);
 
   // Load hosts when selected config changes
   useEffect(() => {
@@ -136,6 +152,7 @@ export default function App() {
   const handlePreview = async () => {
     if (!selectedConfig || !selectedHost) return;
     setWorkflowState("previewing");
+    setActiveTab("log");
     setLogs([]);
     appendLog("info", `Previewing ${selectedConfig.display_name}#${selectedHost}…`);
 
@@ -160,6 +177,7 @@ export default function App() {
   const handleApply = async () => {
     if (!selectedConfig || !selectedHost) return;
     setWorkflowState("applying");
+    setActiveTab("log");
     appendLog("info", `Applying ${selectedConfig.display_name}#${selectedHost}…`);
 
     try {
@@ -183,6 +201,7 @@ export default function App() {
   const handleUpdateFlake = async () => {
     if (!selectedConfig) return;
     setWorkflowState("updating_flake");
+    setActiveTab("log");
     appendLog("info", `Updating flake inputs for ${selectedConfig.display_name}…`);
 
     try {
@@ -212,6 +231,7 @@ export default function App() {
   const handleBackup = async (message: string, push: boolean) => {
     if (!selectedConfig) return;
     setWorkflowState("backing_up");
+    setActiveTab("log");
     setShowBackupModal(false);
     appendLog("info", `Backing up ${selectedConfig.display_name}…`);
 
@@ -300,8 +320,38 @@ export default function App() {
                   <span className="detail-muted">No hosts found</span>
                 )}
               </div>
+              <div className="main-tabs">
+                <button
+                  className={`main-tab ${activeTab === "file" ? "active" : ""}`}
+                  onClick={() => setActiveTab("file")}
+                >
+                  flake.nix
+                </button>
+                <button
+                  className={`main-tab ${activeTab === "log" ? "active" : ""}`}
+                  onClick={() => setActiveTab("log")}
+                >
+                  Log
+                  {logs.length > 0 && (
+                    <span className="tab-badge">{logs.length}</span>
+                  )}
+                </button>
+              </div>
             </div>
-            <LogPane logs={logs} isBusy={isBusy} workflowState={workflowState} />
+
+            {activeTab === "file" ? (
+              <div className="file-viewer">
+                {flakeContent != null ? (
+                  <pre className="file-content">{flakeContent}</pre>
+                ) : (
+                  <div className="log-empty">
+                    <span className="log-empty-text">Loading flake.nix…</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <LogPane logs={logs} isBusy={isBusy} workflowState={workflowState} />
+            )}
           </>
         ) : (
           <EmptyState onAdd={() => setShowAddModal(true)} />

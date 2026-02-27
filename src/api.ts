@@ -27,4 +27,6 @@ export const api = {
   backupConfig: (args: BackupArgs) => invoke<CommandResult>("backup_config", { args }),
 
   validatePath: (path: string) => invoke<boolean>("validate_path", { path }),
+
+  readFlakeNix: (path: string) => invoke<string>("read_flake_nix", { path }),
 };

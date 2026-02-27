@@ -320,3 +320,13 @@ pub fn backup_config(args: BackupArgs) -> Result<CommandResult, String> {
 pub fn validate_path(path: String) -> Result<bool, String> {
     Ok(validate_flake_path(&path).is_ok())
 }
+
+// ─── Read flake.nix content ───────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn read_flake_nix(path: String) -> Result<String, String> {
+    validate_flake_path(&path).map_err(|e| e.to_string())?;
+    let file = std::path::Path::new(&path).join("flake.nix");
+    std::fs::read_to_string(&file)
+        .map_err(|e| format!("Failed to read flake.nix: {}", e))
+}
