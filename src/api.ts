@@ -32,4 +32,7 @@ export const api = {
 
   readNixFile: (root: string, relPath: string) =>
     invoke<string>("read_nix_file", { root, relPath }),
+
+  writeNixFile: (root: string, relPath: string, content: string) =>
+    invoke<void>("write_nix_file", { root, relPath, content }),
 };

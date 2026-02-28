@@ -35,6 +35,7 @@ pub fn run() {
             // File browsing
             list_nix_files,
             read_nix_file,
+            write_nix_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

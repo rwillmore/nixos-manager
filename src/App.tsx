@@ -41,9 +41,16 @@ export default function App() {
   const [showSudoModal, setShowSudoModal] = useState(false);
   const [isLoadingHosts, setIsLoadingHosts] = useState(false);
   const [fileContent, setFileContent] = useState<string | null>(null);
+  const [editedContent, setEditedContent] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"file" | "log">("file");
   const [nixFiles, setNixFiles] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const isDirty =
+    fileContent !== null &&
+    editedContent !== null &&
+    editedContent !== fileContent;
 
   const selectedConfig = configs.find((c) => c.id === selectedId) ?? null;
 
@@ -75,6 +82,7 @@ export default function App() {
     setNixFiles([]);
     setSelectedFile(null);
     setFileContent(null);
+    setEditedContent(null);
     setActiveTab("file");
 
     let cancelled = false;
@@ -88,9 +96,15 @@ export default function App() {
         if (!toSelect) return;
         setSelectedFile(toSelect);
         const content = await api.readNixFile(selectedConfig.path, toSelect);
-        if (!cancelled) setFileContent(content);
+        if (!cancelled) {
+          setFileContent(content);
+          setEditedContent(content);
+        }
       } catch {
-        if (!cancelled) setFileContent(null);
+        if (!cancelled) {
+          setFileContent(null);
+          setEditedContent(null);
+        }
       }
     })();
 
@@ -177,12 +191,28 @@ export default function App() {
     setSelectedFile(rel);
     setActiveTab("file");
     setFileContent(null);
+    setEditedContent(null);
     try {
       const content = await api.readNixFile(selectedConfig.path, rel);
       setFileContent(content);
+      setEditedContent(content);
     } catch (e) {
       setFileContent(null);
+      setEditedContent(null);
       appendLog("error", `Failed to read file: ${e}`);
+    }
+  };
+
+  const handleSaveFile = async () => {
+    if (!selectedConfig || !selectedFile || editedContent === null) return;
+    setIsSaving(true);
+    try {
+      await api.writeNixFile(selectedConfig.path, selectedFile, editedContent);
+      setFileContent(editedContent);
+    } catch (e) {
+      appendLog("error", `Failed to save file: ${e}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -386,6 +416,7 @@ export default function App() {
                   onClick={() => setActiveTab("file")}
                 >
                   {fileTabLabel}
+                  {isDirty && <span className="dirty-dot" title="Unsaved changes" />}
                 </button>
                 <button
                   className={`main-tab ${activeTab === "log" ? "active" : ""}`}
@@ -401,8 +432,30 @@ export default function App() {
 
             {activeTab === "file" ? (
               <div className="file-viewer">
-                {fileContent != null ? (
-                  <pre className="file-content">{fileContent}</pre>
+                {editedContent !== null ? (
+                  <>
+                    <div className="file-editor-bar">
+                      <span className="file-editor-name">{selectedFile}</span>
+                      {isDirty && (
+                        <button
+                          className="btn btn-primary file-save-btn"
+                          onClick={handleSaveFile}
+                          disabled={isSaving}
+                        >
+                          {isSaving ? "Saving…" : "Save"}
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      className="file-editor"
+                      value={editedContent}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      spellCheck={false}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                    />
+                  </>
                 ) : (
                   <div className="log-empty">
                     <span className="log-empty-text">

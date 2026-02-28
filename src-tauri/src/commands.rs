@@ -384,6 +384,31 @@ pub fn list_nix_files(path: String) -> Result<Vec<String>, String> {
 // ─── Read any .nix file within the flake directory ────────────────────────────
 
 #[tauri::command]
+pub fn write_nix_file(root: String, rel_path: String, content: String) -> Result<(), String> {
+    validate_flake_path(&root).map_err(|e| e.to_string())?;
+
+    let base = std::path::Path::new(&root);
+    let full = base.join(&rel_path);
+
+    let canon_root = base
+        .canonicalize()
+        .map_err(|e| format!("Cannot resolve root: {}", e))?;
+    let canon_full = full
+        .canonicalize()
+        .map_err(|e| format!("Cannot resolve path: {}", e))?;
+
+    if !canon_full.starts_with(&canon_root) {
+        return Err("Path is outside flake directory".to_string());
+    }
+    if canon_full.extension().and_then(|e| e.to_str()) != Some("nix") {
+        return Err("Only .nix files can be written".to_string());
+    }
+
+    std::fs::write(&canon_full, content)
+        .map_err(|e| format!("Failed to write file: {}", e))
+}
+
+#[tauri::command]
 pub fn read_nix_file(root: String, rel_path: String) -> Result<String, String> {
     validate_flake_path(&root).map_err(|e| e.to_string())?;
 
