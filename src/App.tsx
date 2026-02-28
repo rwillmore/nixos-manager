@@ -480,7 +480,7 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <LogPane logs={logs} isBusy={isBusy} workflowState={workflowState} />
+              <LogPane logs={logs} isBusy={isBusy} />
             )}
           </>
         ) : (

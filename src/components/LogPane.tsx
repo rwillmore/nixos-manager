@@ -1,11 +1,10 @@
 // src/components/LogPane.tsx
 import { useEffect, useRef } from "react";
-import type { LogEntry, WorkflowState } from "../types";
+import type { LogEntry } from "../types";
 
 interface Props {
   logs: LogEntry[];
   isBusy: boolean;
-  workflowState: WorkflowState;
 }
 
 function TerminalIcon() {
@@ -17,7 +16,7 @@ function TerminalIcon() {
   );
 }
 
-export function LogPane({ logs, isBusy, workflowState }: Props) {
+export function LogPane({ logs, isBusy }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
