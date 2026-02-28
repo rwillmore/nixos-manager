@@ -7,9 +7,44 @@ mod validator;
 
 use commands::*;
 
+const APP_ICON_256: &[u8] = include_bytes!("../icons/128x128@2x.png");
+
+const DESKTOP_ENTRY: &str = "\
+[Desktop Entry]
+Name=Nixie
+Comment=NixOS flake config manager
+Exec=nixie
+Icon=nixie
+Type=Application
+Categories=System;Settings;
+Terminal=false
+StartupWMClass=nixie
+";
+
+fn install_desktop_files() {
+    let Some(home) = dirs::home_dir() else { return };
+
+    let icon_dir = home.join(".local/share/icons/hicolor/256x256/apps");
+    if std::fs::create_dir_all(&icon_dir).is_ok() {
+        let _ = std::fs::write(icon_dir.join("nixie.png"), APP_ICON_256);
+    }
+
+    let apps_dir = home.join(".local/share/applications");
+    if std::fs::create_dir_all(&apps_dir).is_ok() {
+        let _ = std::fs::write(apps_dir.join("nixie.desktop"), DESKTOP_ENTRY);
+        let _ = std::process::Command::new("update-desktop-database")
+            .arg(&apps_dir)
+            .output();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|_app| {
+            install_desktop_files();
+            Ok(())
+        })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
