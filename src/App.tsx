@@ -450,6 +450,19 @@ export default function App() {
                       className="file-editor"
                       value={editedContent}
                       onChange={(e) => setEditedContent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Tab") {
+                          e.preventDefault();
+                          const ta = e.currentTarget;
+                          const start = ta.selectionStart;
+                          const end = ta.selectionEnd;
+                          const next = editedContent!.slice(0, start) + "\t" + editedContent!.slice(end);
+                          setEditedContent(next);
+                          requestAnimationFrame(() => {
+                            ta.selectionStart = ta.selectionEnd = start + 1;
+                          });
+                        }
+                      }}
                       spellCheck={false}
                       autoComplete="off"
                       autoCorrect="off"
