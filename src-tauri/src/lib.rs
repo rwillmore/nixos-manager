@@ -12,7 +12,7 @@ const APP_ICON_256: &[u8] = include_bytes!("../icons/128x128@2x.png");
 const DESKTOP_ENTRY: &str = "[Desktop Entry]\n\
 Name=Nixie\n\
 Comment=NixOS flake config manager\n\
-Exec=bash -c \"cd ~/Desktop/NixNew/nixosnew/nixos-manager && nix develop --command npm run tauri dev\"\n\
+Exec=bash -i -c \"cd /home/rwillmore/Desktop/NixNew/nixosnew/nixos-manager && nix develop --command npm run tauri dev\"\n\
 Icon=nixie\n\
 Type=Application\n\
 Categories=System;Settings;\n\
@@ -37,11 +37,11 @@ fn install_desktop_files() {
     }
 
     // ── .desktop file ─────────────────────────────────────────────────────────
-    let apps_dir = home.join(".local/share/applications");
-    if std::fs::create_dir_all(&apps_dir).is_ok() {
+    let apps_dir = std::path::Path::new("/home/rwillmore/.local/share/applications");
+    if std::fs::create_dir_all(apps_dir).is_ok() {
         let _ = std::fs::write(apps_dir.join("nixie.desktop"), DESKTOP_ENTRY);
         let _ = std::process::Command::new("update-desktop-database")
-            .arg(&apps_dir)
+            .arg(apps_dir)
             .output();
     }
 }
